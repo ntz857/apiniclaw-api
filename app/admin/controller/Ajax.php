@@ -183,9 +183,15 @@ class Ajax extends Backend
         ]);
     }
 
+    /**
+     * @throws Throwable
+     */
     public function changeTerminalConfig(): void
     {
         AdminLog::instance()->setTitle(__('Change terminal config'));
+        if (!$this->auth->isSuperAdmin()) {
+            $this->error(__('You have no permission'));
+        }
         if (Terminal::changeTerminalConfig()) {
             $this->success();
         } else {

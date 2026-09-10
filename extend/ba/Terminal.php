@@ -463,6 +463,11 @@ class Terminal
         $oldPackageManager = Config::get('terminal.npm_package_manager');
         $newPackageManager = request()->post('manager', $config['manager'] ?? $oldPackageManager);
 
+        // 包管理器白名单
+        if (!in_array($newPackageManager, ['npm', 'cnpm', 'pnpm', 'yarn', 'ni', 'none'])) {
+            return false;
+        }
+
         if ($oldPackageManager == $newPackageManager) {
             return true;
         }
