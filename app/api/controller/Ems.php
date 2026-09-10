@@ -13,6 +13,11 @@ use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
 class Ems extends Frontend
 {
+    /**
+     * 允许发送邮件验证码的 event 列表
+     */
+    protected const ALLOWED_EVENTS = ['user_register', 'user_change_email', 'user_retrieve_pwd', 'user_email_verify'];
+
     protected array $noNeedLogin = ['send'];
 
     public function initialize(): void
@@ -47,6 +52,11 @@ class Ems extends Frontend
         ]);
         if (!$validate->check($params)) {
             $this->error(__($validate->getError()));
+        }
+
+        // event 白名单校验，防止自定义 event 绕过频控
+        if (!in_array($params['event'], self::ALLOWED_EVENTS)) {
+            $this->error(__('Parameter error'));
         }
 
         // 检查验证码
