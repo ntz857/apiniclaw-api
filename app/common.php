@@ -296,6 +296,10 @@ if (!function_exists('build_suffix_svg')) {
      */
     function build_suffix_svg(string $suffix = 'file', ?string $background = null): string
     {
+        // 防止反射型 XSS
+        $suffix     = clean_xss($suffix);
+        $background = clean_xss((string)$background);
+
         $suffix = mb_substr(strtoupper($suffix), 0, 4);
         $total  = unpack('L', hash('adler32', $suffix, true))[1];
         $hue    = $total % 360;
