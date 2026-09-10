@@ -219,11 +219,14 @@ class ClickCaptcha
                 $x  = $xy[0];
                 $y  = $xy[1];
                 if ($x / $xPro < $textArr['text'][$k]['x'] || $x / $xPro > $textArr['text'][$k]['x'] + $textArr['text'][$k]['width']) {
+                    // 校验失败立即删除
+                    Db::name('captcha')->where('key', $key)->delete();
                     return false;
                 }
                 $phStart = $textArr['text'][$k]['icon'] ? $textArr['text'][$k]['y'] : $textArr['text'][$k]['y'] - $textArr['text'][$k]['height'];
                 $phEnd   = $textArr['text'][$k]['icon'] ? $textArr['text'][$k]['y'] + $textArr['text'][$k]['height'] : $textArr['text'][$k]['y'];
                 if ($y / $yPro < $phStart || $y / $yPro > $phEnd) {
+                    Db::name('captcha')->where('key', $key)->delete();
                     return false;
                 }
             }
