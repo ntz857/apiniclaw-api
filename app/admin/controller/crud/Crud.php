@@ -375,6 +375,10 @@ class Crud extends Backend
      */
     public function delete(): void
     {
+        // 仅允许超管删除 CRUD 记录
+        if (!$this->auth->isSuperAdmin()) {
+            $this->error(__('You have no permission'));
+        }
         $id   = $this->request->post('id');
         $info = CrudLog::find($id)->toArray();
         if (!$info) {
@@ -390,9 +394,39 @@ class Crud extends Backend
             $info['table']['modelFile'],
             $info['table']['validateFile'],
         ];
+
+        // 允许删除的: 服务端 app/，前端 web/src/views/ 和 web/src/lang/
+        $allowRoots = [
+            realpath(Filesystem::fsFit(root_path() . 'app')),
+            realpath(Filesystem::fsFit(root_path() . 'web' . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'views')),
+            realpath(Filesystem::fsFit(root_path() . 'web' . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'lang')),
+        ];
         try {
             foreach ($files as &$file) {
                 $file = Filesystem::fsFit(root_path() . $file);
+
+                // 防止路径穿越: 禁止 .. 路径段
+                foreach (explode(DIRECTORY_SEPARATOR, $file) as $segment) {
+                    if ($segment === '..') {
+                        throw new Exception('File path is not allowed');
+                    }
+                }
+
+                // 文件存在时，校验其必须位于允许删除的根目录内（含符号链接解析）
+                $realFile = realpath($file);
+                if ($realFile !== false) {
+                    $allowed = false;
+                    foreach ($allowRoots as $realRoot) {
+                        if ($realRoot !== false && ($realFile == $realRoot || str_starts_with($realFile, $realRoot . DIRECTORY_SEPARATOR))) {
+                            $allowed = true;
+                            break;
+                        }
+                    }
+                    if (!$allowed) {
+                        throw new Exception('File path is not allowed');
+                    }
+                }
+
                 if (file_exists($file)) {
                     unlink($file);
                 }
