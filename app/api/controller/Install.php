@@ -18,6 +18,8 @@ use app\admin\model\User as UserModel;
 
 /**
  * 安装控制器
+ * 安装核心功能是向配置文件写入数据库信息、初始化环境配置文件等，本身就是代码注入的一种，但这不是安全隐患，因为：
+ * 一旦系统安装完成（public/install.lock 被建立）安装控制器即锁定，所有方法都不能再被访问。
  */
 class Install extends Api
 {
@@ -95,8 +97,9 @@ class Install extends Api
 
     public function changePackageManager(): void
     {
-        if ($this->isInstallComplete()) {
-            return;
+        // 检查配置写入锁
+        if ($this->isInstallComplete('config')) {
+            $this->error(__('The system has completed installation. If you need to reinstall, please delete the %s file first', ['public/' . self::$lockFileName]));
         }
 
         $newPackageManager = request()->post('manager', Config::get('terminal.npm_package_manager'));
@@ -406,6 +409,11 @@ class Install extends Api
      */
     public function testDatabase(): void
     {
+        // 检查安装完成锁
+        if ($this->isInstallComplete()) {
+            $this->error(__('The system has completed installation. If you need to reinstall, please delete the %s file first', ['public/' . self::$lockFileName]));
+        }
+
         $database = [
             'hostname' => $this->request->post('hostname'),
             'username' => $this->request->post('username'),
@@ -430,7 +438,8 @@ class Install extends Api
      */
     public function baseConfig(): void
     {
-        if ($this->isInstallComplete()) {
+        // 检查配置写入锁
+        if ($this->isInstallComplete('config')) {
             $this->error(__('The system has completed installation. If you need to reinstall, please delete the %s file first', ['public/' . self::$lockFileName]));
         }
 
@@ -519,15 +528,20 @@ class Install extends Api
         ]);
     }
 
-    protected function isInstallComplete(): bool
+    protected function isInstallComplete(string $type = 'end'): bool
     {
-        if (is_file(public_path() . self::$lockFileName)) {
-            $contents = @file_get_contents(public_path() . self::$lockFileName);
-            if ($contents == self::$InstallationCompletionMark) {
-                return true;
-            }
+        $lockFile = public_path() . self::$lockFileName;
+        if (!is_file($lockFile)) {
+            return false;
         }
-        return false;
+
+        // config: 仅检查锁文件是否存在，锁文件存在即视为安装已开始/完成，只是部分未尽事宜未完成，禁止再次写入配置
+        if ($type == 'config') {
+            return true;
+        }
+
+        // 默认 end: 检查安装完成标记
+        return @file_get_contents($lockFile) == self::$InstallationCompletionMark;
     }
 
     /**
@@ -600,6 +614,11 @@ class Install extends Api
      */
     public function manualInstall(): void
     {
+        // 检查安装完成锁
+        if ($this->isInstallComplete()) {
+            $this->error(__('The system has completed installation. If you need to reinstall, please delete the %s file first', ['public/' . self::$lockFileName]));
+        }
+
         $this->success('', [
             'webPath' => str_replace('\\', '/', root_path() . 'web')
         ]);
@@ -607,11 +626,20 @@ class Install extends Api
 
     public function mvDist(): void
     {
+        // 检查安装完成锁
+        if ($this->isInstallComplete()) {
+            $this->error(__('The system has completed installation. If you need to reinstall, please delete the %s file first', ['public/' . self::$lockFileName]));
+        }
+
         if (!is_file(root_path() . self::$distDir . DIRECTORY_SEPARATOR . 'index.html')) {
             $this->error(__('No built front-end file found, please rebuild manually!'));
         }
 
         if (Terminal::mvDist()) {
+            $result = @file_put_contents(public_path() . self::$lockFileName, self::$InstallationCompletionMark);
+            if (!$result) {
+                $this->error(__('File has no write permission:%s', ['public/' . self::$lockFileName]));
+            }
             $this->success();
         } else {
             $this->error(__('Failed to move the front-end file, please move it manually!'));
