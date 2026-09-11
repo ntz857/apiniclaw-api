@@ -991,8 +991,14 @@ class Manage
         return true;
     }
 
+    /**
+     * @throws Throwable
+     */
     public function setModuleUid(string $uid): static
     {
+        if ($uid !== '' && !preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/', $uid)) {
+            throw new Exception('Module uid is invalid');
+        }
         $this->uid        = $uid;
         $this->modulesDir = $this->installDir . $uid . DIRECTORY_SEPARATOR;
         return $this;
