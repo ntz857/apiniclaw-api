@@ -8,6 +8,7 @@ use ba\ClickCaptcha;
 use think\facade\Config;
 use app\common\facade\Token;
 use app\common\controller\Frontend;
+use app\common\library\Auth as UserAuth;
 use app\api\validate\User as UserValidate;
 
 class User extends Frontend
@@ -91,8 +92,13 @@ class User extends Frontend
     public function logout(): void
     {
         if ($this->request->isPost()) {
-            $refreshToken = $this->request->post('refreshToken', '');
-            if ($refreshToken) Token::delete((string)$refreshToken);
+            $refreshToken = $this->request->post('refreshToken/s', '');
+            if ($refreshToken) {
+                $tokenData = Token::get($refreshToken);
+                if ($tokenData && $tokenData['user_id'] == $this->auth->id && $tokenData['type'] == UserAuth::TOKEN_TYPE . '-refresh') {
+                    Token::delete($refreshToken);
+                }
+            }
             $this->auth->logout();
             $this->success();
         }
