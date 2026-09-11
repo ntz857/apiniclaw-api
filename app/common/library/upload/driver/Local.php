@@ -5,6 +5,7 @@ namespace app\common\library\upload\driver;
 use ba\Filesystem;
 use think\facade\Config;
 use think\file\UploadedFile;
+use InvalidArgumentException;
 use think\exception\FileException;
 use app\common\library\upload\Driver;
 
@@ -130,10 +131,28 @@ class Local extends Driver
 
         // 以 root 路径开始时单独返回，避免重复调用此方法时造成 $dirName 的错误拼接
         if (str_starts_with($saveName, $root)) {
-            return Filesystem::fsFit($baseName || !isset($savePathInfo['extension']) ? $saveName : $dirName);
+            $fullPath = Filesystem::fsFit($baseName || !isset($savePathInfo['extension']) ? $saveName : $dirName);
+        } else {
+            $fullPath = Filesystem::fsFit($root . $dirName . ($baseName ? $savePathInfo['basename'] : ''));
         }
 
-        return Filesystem::fsFit($root . $dirName . ($baseName ? $savePathInfo['basename'] : ''));
+        // 防止路径穿越: 禁止出现 .. 路径段
+        foreach (explode(DIRECTORY_SEPARATOR, $fullPath) as $segment) {
+            if ($segment === '..') {
+                throw new InvalidArgumentException('File path is not allowed');
+            }
+        }
+
+        // 路径存在时，再以 realpath 规范化结果校验包含关系（可解析符号链接）
+        $realRoot = realpath(Filesystem::fsFit($this->options['root']));
+        $realPath = realpath($fullPath);
+        if ($realRoot !== false && $realPath !== false
+            && $realPath != $realRoot
+            && !str_starts_with($realPath, $realRoot . DIRECTORY_SEPARATOR)) {
+            throw new InvalidArgumentException('File path is not allowed');
+        }
+
+        return $fullPath;
     }
 
     public function clearRootPath(string $saveName): string

@@ -18,6 +18,8 @@ class Attachment extends Backend
 
     protected array $withJoinTable = ['admin', 'user'];
 
+    protected string|array $preExcludeFields = ['topic', 'url', 'storage', 'sha1'];
+
     protected string|array $defaultSortField = 'last_upload_time,desc';
 
     public function initialize(): void
