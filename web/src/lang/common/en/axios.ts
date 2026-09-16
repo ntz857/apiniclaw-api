@@ -1,5 +1,7 @@
 export default {
     'Operation successful': 'Operate successful',
+    'Operation failed': 'Operation failed',
+    'Network error': 'Network error',
     'Automatic cancellation due to duplicate request:': 'Automatic cancellation due to duplicate requests:',
     'Interface redirected!': 'Interface redirected!',
     'Incorrect parameter!': 'Incorrect parameter!',

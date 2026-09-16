@@ -1,5 +1,7 @@
 export default {
     'Operation successful': '操作成功',
+    'Operation failed': '操作失败',
+    'Network error': '网络错误',
     'Automatic cancellation due to duplicate request:': '因为请求重复被自动取消：',
     'Interface redirected!': '接口重定向了！',
     'Incorrect parameter!': '参数不正确！',

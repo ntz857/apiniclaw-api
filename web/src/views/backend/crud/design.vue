@@ -1308,42 +1308,146 @@ const handleFieldAttr = (field: FieldItem) => {
 }
 
 /**
+ * 根据字段注释中的字典数据组装 enum/set 字段类型
+ */
+const buildDictDataType = (type: string, comment: string): string => {
+    comment = comment.replaceAll('：', ':').replaceAll('，', ',')
+    const dict = comment.split(':')[1] ?? ''
+    const values = dict
+        .split(',')
+        .map((item) => {
+            if (!item) return ''
+            const temp = item.split('=')
+            if (temp[0] && temp[1]) {
+                return `'${temp[0]}'`
+            }
+            return ''
+        })
+        .filter(Boolean)
+    return `${type}(${values.join(',')})`
+}
+
+/**
  * 根据字段字典重新生成字段的数据类型
  */
 const onFieldCommentChange = (comment: string) => {
     onFieldAttrChange()
     if (['enum', 'set'].includes(state.fields[state.activateField].type)) {
+        const fieldType = state.fields[state.activateField].type
         if (!comment) {
-            state.fields[state.activateField].dataType = `${state.fields[state.activateField].type}()`
+            state.fields[state.activateField].dataType = `${fieldType}()`
             return
         }
-        comment = comment.replaceAll('：', ':')
-        comment = comment.replaceAll('，', ',')
-        let comments = comment.split(':')
-        if (comments[1]) {
-            comments = comments[1].split(',')
-            comments = comments
-                .map((value) => {
-                    if (!value) return ''
-                    let temp = value.split('=')
-                    if (temp[0] && temp[1]) {
-                        return `'${temp[0]}'`
-                    }
-                    return ''
-                })
-                .filter((str: string) => str != '')
-
-            // 字段数据类型
-            state.fields[state.activateField].dataType = `${state.fields[state.activateField].type}(${comments.join(',')})`
+        const parts = comment.replaceAll('：', ':').split(':')
+        if (parts[1]) {
+            state.fields[state.activateField].dataType = buildDictDataType(fieldType, comment)
         }
     }
 }
 
+/**
+ * 获取 AI 字段对应的设计器字段预设
+ */
+const getAIDesignPreset = (designType: string): FieldItem => {
+    for (const group of ['common', 'base', 'senior'] as const) {
+        const field = fieldItem[group].find((item) => item.designType == designType)
+        if (field) return cloneDeep(field)
+    }
+    return cloneDeep(fieldItem.base.find((item) => item.designType == 'string')!)
+}
+
+/**
+ * 将 AI 输出的精简字段转换为设计器完整字段
+ */
+const normalizeAIDesignField = (raw: Partial<FieldItem>): FieldItem => {
+    const rawDesignType = raw.designType
+    const field = getAIDesignPreset(rawDesignType ?? 'string')
+
+    field.title = raw.title || (raw.comment ? raw.comment.split(':')[0] : raw.name || field.name)
+    field.name = raw.name || field.name
+    field.comment = raw.comment || field.title
+    field.designType = rawDesignType && designTypes[rawDesignType] ? rawDesignType : field.designType
+
+    if (raw.type) field.type = raw.type
+    if (raw.dataType) field.dataType = raw.dataType
+
+    const length = Number(raw.length)
+    if (Number.isFinite(length)) field.length = length
+    const precision = Number(raw.precision)
+    if (Number.isFinite(precision)) field.precision = precision
+
+    const validDefaultTypes = ['INPUT', 'EMPTY STRING', 'NULL', 'NONE']
+    if (raw.defaultType && validDefaultTypes.includes(raw.defaultType.toUpperCase())) {
+        field.defaultType = raw.defaultType.toUpperCase() as FieldItem['defaultType']
+    }
+
+    if (raw.null !== undefined) field.null = Boolean(raw.null)
+    if (raw.primaryKey !== undefined) field.primaryKey = Boolean(raw.primaryKey)
+    if (raw.unsigned !== undefined) field.unsigned = Boolean(raw.unsigned)
+    if (raw.autoIncrement !== undefined) field.autoIncrement = Boolean(raw.autoIncrement)
+
+    if (field.defaultType == 'NONE') {
+        delete field.default
+    } else if (raw.default !== undefined && raw.default !== null) {
+        field.default = String(raw.default)
+    }
+
+    // 当模型未输出完整数据类型时，根据字段字典生成 enum/set 数据类型
+    if (['radio', 'checkbox', 'select'].includes(field.designType) && !field.dataType) {
+        field.dataType = buildDictDataType(field.type, field.comment)
+    }
+
+    return handleFieldAttr(field)
+}
+
+/**
+ * 载入 AI 生成的 CRUD 设计
+ */
+const loadAIDesign = () => {
+    const { table, comment, fields } = crudState.startData
+    if (!table) return
+
+    state.table.name = table
+    state.table.comment = comment
+    state.table.rebuild = 'Yes'
+
+    for (const rawField of fields) {
+        const field = normalizeAIDesignField(rawField)
+        // 表单表格字段预定义
+        if (!field.formBuildExclude) {
+            state.table.formFields.push(field.uuid!)
+        }
+        if (!field.tableBuildExclude) {
+            state.table.columnFields.push(field.uuid!)
+        }
+        if (['pk', 'spk'].includes(field.designType)) {
+            state.table.defaultSortField = field.uuid!
+            state.table.quickSearchField.push(field.uuid!)
+        }
+        if (field.designType == 'weigh') {
+            state.table.defaultSortField = field.uuid!
+        }
+        if (!state.table.quickSearchField.length && ['title', 'name', 'username', 'nickname'].includes(field.name)) {
+            state.table.quickSearchField.push(field.uuid!)
+        }
+        state.fields.push(field)
+    }
+
+    onTableChange(state.table.name)
+}
+
 const loadData = () => {
     tableDesignChangeInit()
-    if (!['db', 'sql', 'log'].includes(crudState.type)) return
+    if (!['db', 'sql', 'log', 'ai'].includes(crudState.type)) return
 
     state.loading.init = true
+
+    // 从 AI 设计数据表开始
+    if (crudState.type == 'ai') {
+        loadAIDesign()
+        state.loading.init = false
+        return
+    }
 
     // 从历史记录开始
     if (crudState.type == 'log') {

@@ -12,7 +12,9 @@ use app\common\library\Menu;
 use app\admin\model\AdminLog;
 use app\admin\model\AdminRule;
 use app\common\controller\Backend;
+use app\admin\library\crud\AIChat;
 use app\admin\library\crud\Helper;
+use app\admin\library\crud\StreamResponse;
 
 class Crud extends Backend
 {
@@ -60,7 +62,7 @@ class Crud extends Backend
      */
     protected array $dtStringToArray = ['checkbox', 'selects', 'remoteSelects', 'city', 'images', 'files'];
 
-    protected array $noNeedPermission = ['logStart', 'getFileData', 'parseFieldData', 'generateCheck', 'uploadCompleted'];
+    protected array $noNeedPermission = ['aiConfig', 'aiStream', 'logStart', 'getFileData', 'parseFieldData', 'generateCheck', 'uploadCompleted'];
 
     public function initialize(): void
     {
@@ -299,6 +301,47 @@ class Crud extends Backend
         $this->success('', [
             'crudLog' => CrudLog::find($crudLogId),
         ]);
+    }
+
+    /**
+     * 获取 AI 配置
+     * @throws Throwable
+     */
+    public function aiConfig(): void
+    {
+        if (!$this->auth->check('crud/crud/generate')) {
+            $this->error(__('You have no permission'));
+        }
+        $this->success('', AIChat::config());
+    }
+
+    /**
+     * AI 对话流式输出
+     * @throws Throwable
+     */
+    public function aiStream(): StreamResponse
+    {
+        if (!$this->auth->check('crud/crud/generate')) {
+            return StreamResponse::error(__('You have no permission'));
+        }
+
+        $model       = $this->request->post('model', '');
+        $messages    = $this->request->post('messages', []);
+        $temperature = (float)$this->request->post('temperature', 0.3);
+        $topP        = (float)$this->request->post('top_p', 1);
+
+        try {
+            $response = AIChat::stream($model, $messages, $temperature, $topP);
+            if ($response->getStatusCode() != 200) {
+                $body   = $response->getBody();
+                $reason = $body->read(4096);
+                $body->close();
+                throw new Exception('AI API error ' . $response->getStatusCode() . ': ' . trim($reason));
+            }
+            return StreamResponse::body($response->getBody());
+        } catch (Throwable $e) {
+            return StreamResponse::error($e->getMessage());
+        }
     }
 
     /**

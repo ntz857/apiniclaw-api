@@ -29,6 +29,7 @@ export default {
     None: '无',
     Unknown: '未知',
     Weigh: '权重',
+    Copy: '复制',
     'Drag sort': '拖动以排序',
     'Save and edit next item': '保存并编辑下一项',
     'Quick search placeholder': '通过{fields}模糊搜索',

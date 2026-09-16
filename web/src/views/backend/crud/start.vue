@@ -3,19 +3,25 @@
         <div class="crud-title">{{ t('crud.crud.start') }}</div>
         <div class="start-opt">
             <el-row :gutter="20">
-                <el-col :xs="24" :span="8">
+                <el-col :xs="24" :span="6">
                     <div @click="changeStep('create')" class="start-item suspension">
                         <div class="start-item-title">{{ t('crud.crud.create') }}</div>
                         <div class="start-item-remark">{{ t('crud.crud.New background CRUD from zero') }}</div>
                     </div>
                 </el-col>
-                <el-col @click="onShowDialog('db')" :xs="24" :span="8">
+                <el-col @click="onShowAI" :xs="24" :span="6">
+                    <div class="start-item suspension">
+                        <div class="start-item-title">{{ t('crud.crud.AI design') }}</div>
+                        <div class="start-item-remark">{{ t('crud.crud.Describe requirements and generate table design') }}</div>
+                    </div>
+                </el-col>
+                <el-col @click="onShowTableDialog" :xs="24" :span="6">
                     <div class="start-item suspension">
                         <div class="start-item-title">{{ t('crud.crud.Select Data Table') }}</div>
                         <div class="start-item-remark">{{ t('crud.crud.Select a designed data table from the database') }}</div>
                     </div>
                 </el-col>
-                <el-col @click="state.showLog = true" :xs="24" :span="8">
+                <el-col @click="onShowLog" :xs="24" :span="6">
                     <div class="start-item suspension">
                         <div class="start-item-title">{{ t('crud.crud.CRUD record') }}</div>
                         <div class="start-item-remark">{{ t('crud.crud.Start with previously generated CRUD code') }}</div>
@@ -61,24 +67,17 @@
 
             <el-dialog
                 class="ba-operate-dialog select-table-dialog"
-                v-model="state.dialog.visible"
-                :title="state.dialog.type == 'sql' ? t('crud.crud.Please enter SQL') : t('crud.crud.Please select a data table')"
+                v-model="state.tableDialog.visible"
+                :title="state.tableDialog.type == 'sql' ? t('crud.crud.Please enter SQL') : t('crud.crud.Please select a data table')"
                 :destroy-on-close="true"
             >
-                <el-form
-                    :label-width="140"
-                    @keyup.enter="onSubmit()"
-                    class="select-table-form"
-                    ref="formRef"
-                    :model="crudState.startData"
-                    :rules="rules"
-                >
-                    <template v-if="state.dialog.type == 'sql'">
+                <el-form :label-width="140" @keyup.enter="onSubmit()" class="select-table-form" ref="formRef" :model="state.tableForm" :rules="rules">
+                    <template v-if="state.tableDialog.type == 'sql'">
                         <el-input
                             class="sql-input"
                             prop="sql"
                             ref="sqlInputRef"
-                            v-model="crudState.startData.sql"
+                            v-model="state.tableForm.sql"
                             type="textarea"
                             :placeholder="t('crud.crud.table create SQL')"
                             :rows="10"
@@ -86,10 +85,10 @@
                             @keyup.ctrl.enter="onSubmit()"
                         />
                     </template>
-                    <template v-else-if="state.dialog.type == 'db'">
+                    <template v-else-if="state.tableDialog.type == 'db'">
                         <FormItem
                             :label="t('Database connection')"
-                            v-model="crudState.startData.databaseConnection"
+                            v-model="state.tableForm.databaseConnection"
                             type="remoteSelect"
                             :label-width="140"
                             :block-help="t('Database connection help')"
@@ -103,9 +102,9 @@
                         />
                         <FormItem
                             :label="t('crud.crud.data sheet')"
-                            v-model="crudState.startData.table"
+                            v-model="state.tableForm.table"
                             type="remoteSelect"
-                            :key="crudState.startData.databaseConnection"
+                            :key="state.tableForm.databaseConnection"
                             :placeholder="t('crud.crud.Please select a data table')"
                             :label-width="140"
                             :block-help="t('crud.crud.data sheet help')"
@@ -113,7 +112,7 @@
                                 pk: 'table',
                                 field: 'comment',
                                 params: {
-                                    connection: crudState.startData.databaseConnection,
+                                    connection: state.tableForm.databaseConnection,
                                     samePrefix: 1,
                                     excludeTable: [
                                         'area',
@@ -143,7 +142,7 @@
                 </el-form>
                 <template #footer>
                     <div :style="{ width: 'calc(100% * 0.9)' }">
-                        <el-button @click="state.dialog.visible = false">{{ $t('Cancel') }}</el-button>
+                        <el-button @click="state.tableDialog.visible = false">{{ $t('Cancel') }}</el-button>
                         <el-button :loading="state.loading" @click="onSubmit()" v-blur type="primary">{{ t('Confirm') }}</el-button>
                         <el-button v-if="state.successRecord" @click="onLogStart" v-blur type="success">
                             {{ t('crud.crud.Start with the historical record') }}
@@ -153,6 +152,7 @@
             </el-dialog>
 
             <CrudLog v-model="state.showLog" />
+            <AIDialog v-model="state.showAI" />
         </div>
     </div>
 </template>
@@ -161,10 +161,11 @@
 import { reactive, useTemplateRef } from 'vue'
 import { checkCrudLog } from '/@/api/backend/crud'
 import FormItem from '/@/components/formItem/index.vue'
-import { changeStep, state as crudState } from '/@/views/backend/crud/index'
+import { changeStep } from '/@/views/backend/crud/index'
 import { ElNotification } from 'element-plus'
 import type { FormItemRule } from 'element-plus'
 import { buildValidatorData } from '/@/utils/validate'
+import AIDialog from '/@/views/backend/crud/ai.vue'
 import CrudLog from '/@/views/backend/crud/log.vue'
 import { useI18n } from 'vue-i18n'
 import { getDatabaseConnectionListUrl, getTableListUrl } from '/@/api/common'
@@ -174,26 +175,36 @@ const formRef = useTemplateRef('formRef')
 const sqlInputRef = useTemplateRef('sqlInputRef')
 
 const state = reactive({
-    dialog: {
-        type: '',
+    tableDialog: {
+        type: '' as 'db' | 'sql',
         visible: false,
     },
+    tableForm: {
+        sql: '',
+        table: '',
+        databaseConnection: '',
+    },
+    showAI: false,
     showLog: false,
     loading: false,
     successRecord: 0,
 })
 
-const onShowDialog = (type: string) => {
-    state.dialog.type = type
-    state.dialog.visible = true
-    if (type == 'sql') {
-        setTimeout(() => {
-            sqlInputRef.value?.focus()
-        }, 200)
-    } else if (type == 'db') {
-        state.successRecord = 0
-        crudState.startData.table = ''
-    }
+const onShowAI = () => {
+    state.showAI = true
+}
+
+const onShowLog = () => {
+    state.showLog = true
+}
+
+const onShowTableDialog = () => {
+    state.tableDialog.type = 'db'
+    state.tableDialog.visible = true
+    state.successRecord = 0
+    state.tableForm.sql = ''
+    state.tableForm.table = ''
+    state.tableForm.databaseConnection = ''
 }
 
 const rules: Partial<Record<string, FormItemRule[]>> = reactive({
@@ -201,7 +212,7 @@ const rules: Partial<Record<string, FormItemRule[]>> = reactive({
 })
 
 const onSubmit = () => {
-    if (state.dialog.type == 'sql' && !crudState.startData.sql) {
+    if (state.tableDialog.type == 'sql' && !state.tableForm.sql) {
         ElNotification({
             type: 'error',
             message: t('crud.crud.Please enter the table creation SQL'),
@@ -210,21 +221,25 @@ const onSubmit = () => {
     }
     formRef.value?.validate((valid) => {
         if (valid) {
-            changeStep(state.dialog.type)
+            changeStep(state.tableDialog.type, {
+                table: state.tableForm.table,
+                sql: state.tableForm.sql,
+                databaseConnection: state.tableForm.databaseConnection,
+            })
         }
     })
 }
 
 const onDatabaseChange = () => {
     state.successRecord = 0
-    crudState.startData.table = ''
+    state.tableForm.table = ''
 }
 
 const onTableStartChange = () => {
-    if (crudState.startData.table) {
+    if (state.tableForm.table) {
         // 检查是否有CRUD记录
         state.loading = true
-        checkCrudLog(crudState.startData.table, crudState.startData.databaseConnection)
+        checkCrudLog(state.tableForm.table, state.tableForm.databaseConnection)
             .then((res) => {
                 state.successRecord = res.data.id
             })
@@ -236,8 +251,7 @@ const onTableStartChange = () => {
 
 const onLogStart = () => {
     if (state.successRecord) {
-        crudState.startData.logId = state.successRecord.toString()
-        changeStep('log')
+        changeStep('log', { logId: state.successRecord.toString() })
     }
 }
 
@@ -270,7 +284,7 @@ const isDev = () => {
 }
 .start-opt {
     display: block;
-    width: 60%;
+    width: 70%;
     margin: 40px auto;
 }
 .start-item {

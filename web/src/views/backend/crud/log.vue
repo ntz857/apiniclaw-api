@@ -262,7 +262,7 @@ import { useBaAccount } from '/@/stores/baAccount'
 import { useConfig } from '/@/stores/config'
 import baTableClass from '/@/utils/baTable'
 import { auth, getArrayKey } from '/@/utils/common'
-import { changeStep, state as crudState } from '/@/views/backend/crud/index'
+import { changeStep } from '/@/views/backend/crud/index'
 
 interface Props {
     modelValue: boolean
@@ -321,8 +321,7 @@ const optButtons: OptButton[] = [
         },
         disabledTip: false,
         click: (row) => {
-            crudState.startData.logId = row[baTable.table.pk!]
-            changeStep('log')
+            changeStep('log', { logId: String(row[baTable.table.pk!]) })
             emits('update:modelValue', false)
         },
     },
@@ -437,9 +436,7 @@ const toggleShowDownload = (status: boolean) => {
 }
 
 const onLoadLog = (id: string) => {
-    crudState.startData.logId = id
-    crudState.startData.logType = 'Cloud history'
-    changeStep('log')
+    changeStep('log', { logId: id, logType: 'Cloud history' })
     emits('update:modelValue', false)
 }
 

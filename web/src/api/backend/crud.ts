@@ -1,8 +1,29 @@
+import adminBaseRoute from '/@/router/static/adminBase'
 import { useBaAccount } from '/@/stores/baAccount'
 import { useSiteConfig } from '/@/stores/siteConfig'
-import createAxios from '/@/utils/axios'
+import createAxios, { getUrl } from '/@/utils/axios'
+import { isAdminApp } from '/@/utils/common'
 
 export const url = '/admin/crud.Crud/'
+
+/**
+ * 获取 AI 对话流式接口地址
+ * 自定义后台入口时保持与 axios 封装一致的入口路径改写规则
+ */
+export function crudAIStreamURL(): string {
+    let path = url + 'aiStream'
+    if (adminBaseRoute.path != '/admin' && isAdminApp()) {
+        path = path.replace(/^\/admin\//, adminBaseRoute.path + '.php/')
+    }
+    return getUrl() + path
+}
+
+export function getAIConfig() {
+    return createAxios({
+        url: url + 'aiConfig',
+        method: 'get',
+    })
+}
 
 export function generate(data: anyObj) {
     return createAxios(

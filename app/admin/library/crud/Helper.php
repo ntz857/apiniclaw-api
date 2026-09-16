@@ -306,7 +306,7 @@ class Helper
         if ($type == 'tinyint') {
             if (
                 (isset($field['dataType']) && $field['dataType'] == 'tinyint(1)') ||
-                ($field['default'] == '1' && $field['defaultType'] == 'INPUT')
+                (isset($field['default']) && $field['default'] == '1' && $field['defaultType'] == 'INPUT')
             ) {
                 $type = 'boolean';
             }

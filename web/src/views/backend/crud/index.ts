@@ -29,6 +29,8 @@ export const state: {
     startData: {
         sql: string
         table: string
+        comment: string
+        fields: FieldItem[]
         logId: string
         logType: string
         databaseConnection: string
@@ -39,22 +41,56 @@ export const state: {
     startData: {
         sql: '',
         table: '',
+        comment: '',
+        fields: [],
         logId: '',
         logType: '',
         databaseConnection: '',
     },
 })
 
-export const changeStep = (type: string) => {
+const startDataStringKeys = ['sql', 'table', 'comment', 'logId', 'logType', 'databaseConnection'] as const
+
+export const changeStep = (type: 'create' | 'db' | 'sql' | 'start' | 'log' | 'ai', data: Partial<typeof state.startData> = {}) => {
     state.type = type
+
+    // 清空所有 state.startData
+    for (const key of startDataStringKeys) {
+        state.startData[key] = ''
+    }
+    state.startData.fields = []
+
     if (type == 'start') {
         state.step = 'Start'
-        for (const key in state.startData) {
-            state.startData[key as keyof typeof state.startData] = ''
-        }
-    } else {
-        state.step = 'Design'
+        return
     }
+
+    switch (type) {
+        case 'db':
+            state.startData.table = data.table ?? ''
+            state.startData.databaseConnection = data.databaseConnection ?? ''
+            break
+        case 'sql':
+            state.startData.sql = data.sql ?? ''
+            state.startData.databaseConnection = data.databaseConnection ?? ''
+            break
+        case 'log':
+            state.startData.logId = data.logId ?? ''
+            state.startData.logType = data.logType ?? ''
+            break
+        case 'ai':
+            state.startData.table = data.table ?? ''
+            state.startData.comment = data.comment ?? ''
+            state.startData.fields = data.fields ?? []
+            break
+    }
+    state.step = 'Design'
+}
+
+export interface TableDesignData {
+    table: string
+    comment: string
+    fields: FieldItem[]
 }
 
 export interface FieldItem {

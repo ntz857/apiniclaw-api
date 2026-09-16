@@ -28,6 +28,7 @@ export default {
     None: 'None',
     Unknown: 'Unknown',
     Weigh: 'weigh',
+    Copy: 'copy',
     'Drag sort': 'Drag sort',
     'Save and edit next item': 'save and edit next item',
     'Quick search placeholder': 'Fuzzy search by {fields}',
