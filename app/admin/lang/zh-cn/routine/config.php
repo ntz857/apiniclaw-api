@@ -2,6 +2,7 @@
 return [
     'Basics'                                                                                            => '基础配置',
     'Mail'                                                                                              => '邮件配置',
+    'AI'                                                                                                => 'AI配置',
     'Config group'                                                                                      => '配置分组',
     'Site Name'                                                                                         => '站点名称',
     'Backend entrance'                                                                                  => '自定义后台入口',
@@ -16,6 +17,8 @@ return [
     'smtp pass'                                                                                         => 'SMTP 密码',
     'smtp verification'                                                                                 => 'SMTP 验证方式',
     'smtp sender mail'                                                                                  => 'SMTP 发件人邮箱',
+    'Model list'                                                                                        => '可用模型列表',
+    'Default model'                                                                                     => '默认托底模型',
     'Variable name'                                                                                     => '变量名',
     'Test mail sent successfully~'                                                                      => '测试邮件发送成功~',
     'This is a test email'                                                                              => '这是一封测试邮件',

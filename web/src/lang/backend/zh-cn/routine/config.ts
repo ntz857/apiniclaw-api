@@ -13,4 +13,5 @@ export default {
     'Please enter the correct email address': '请输入正确的电子邮箱地址',
     Sending: '发送中...',
     'Please enter the correct mail configuration': '请输入正确的邮件配置',
+    'Default model': '默认托底模型',
 }

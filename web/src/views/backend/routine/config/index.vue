@@ -57,7 +57,7 @@
                                         :key="'textarea-' + item.id"
                                     />
                                     <FormItem
-                                        v-else
+                                        v-else-if="item.type != 'hidden'"
                                         :label="item.title"
                                         :type="item.type"
                                         v-model="state.form[item.name]"
@@ -81,9 +81,29 @@
                                     </div>
                                 </template>
                             </div>
+
+                            <!-- ==================== 特例 ==================== -->
+
+                            <!-- 测试邮件发送 -->
                             <div v-if="group.name == 'mail'" class="send-test-mail">
                                 <el-button @click="onTestSendMail()">{{ t('routine.config.Test mail sending') }}</el-button>
                             </div>
+
+                            <!-- AI 配置 -->
+                            <div v-if="group.name == 'ai'" class="config-form-item">
+                                <FormItem
+                                    :label="t('routine.config.Default model')"
+                                    type="select"
+                                    v-model="state.form['ai_default_model']"
+                                    prop="ai_default_model"
+                                    :input-attr="{ content: getModelListDict() }"
+                                    key="other-ai_default_model"
+                                />
+
+                                <div class="config-form-item-name">$ai_default_model</div>
+                                <div class="del-config-form-item"></div>
+                            </div>
+
                             <el-button type="primary" @click="onSubmit()">{{ t('Save') }}</el-button>
                         </el-tab-pane>
                         <el-tab-pane
@@ -273,6 +293,16 @@ const onTestSendMail = () => {
             }
         },
     })
+}
+
+const getModelListDict = () => {
+    const modelList: anyObj = {}
+    for (const key in state.form['ai_model_list']) {
+        if (state.form['ai_model_list'][key]['key'] && state.form['ai_model_list'][key]['value']) {
+            modelList[state.form['ai_model_list'][key]['value']] = state.form['ai_model_list'][key]['key']
+        }
+    }
+    return modelList
 }
 
 onMounted(() => {
