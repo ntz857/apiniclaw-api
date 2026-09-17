@@ -248,7 +248,7 @@
 </template>
 
 <script setup lang="ts">
-import { ElNotification } from 'element-plus'
+import { ElMessage, ElNotification } from 'element-plus'
 import { debounce } from 'lodash-es'
 import { nextTick, onMounted, provide, reactive, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -305,12 +305,41 @@ const tableRef = useTemplateRef('tableRef')
 
 const optButtons: OptButton[] = [
     {
+        render: 'tipButton',
+        name: 'ctx',
+        title: 'crud.crud.ctx',
+        text: '',
+        type: 'primary',
+        icon: 'el-icon-ChatDotRound',
+        class: 'table-row-copy-ctx',
+        disabledTip: false,
+        click: async (row) => {
+            const context =
+                `已生成的 CRUD 代码上下文数据如下: \n` +
+                `数据表名: ${row.table.name}\n` +
+                `模型文件: ${row.table.modelFile}\n` +
+                `控制器文件: ${row.table.controllerFile}\n` +
+                `验证器文件: ${row.table.validateFile}\n` +
+                `前端表格组件（路由入口）: ${row.table.webViewsDir}\\index.vue\n` +
+                `前端表单组件: ${row.table.webViewsDir}\\popupForm.vue\n` +
+                `前端中文语言包: ${row.lang_cn}\n` +
+                `前端英文语言包: ${row.lang_en}\n`
+
+            try {
+                await navigator.clipboard.writeText(context)
+                ElMessage.success(t('crud.crud.Copy successful'))
+            } catch {
+                ElMessage.error(t('crud.crud.Copy failed'))
+            }
+        },
+    },
+    {
         render: 'confirmButton',
         name: 'copy',
         title: 'crud.crud.copy',
         text: '',
         type: 'primary',
-        icon: 'fa fa-copy',
+        icon: 'el-icon-CopyDocument',
         class: 'table-row-copy',
         popconfirm: {
             confirmButtonText: t('Confirm'),
@@ -402,7 +431,7 @@ const baTable = new baTableClass(
                 width: 160,
                 timeFormat: 'yyyy-mm-dd hh:MM:ss',
             },
-            { label: t('Operate'), align: 'center', width: 100, render: 'buttons', buttons: optButtons, operator: false },
+            { label: t('Operate'), align: 'center', width: 120, render: 'buttons', buttons: optButtons, operator: false },
         ],
         dblClickNotEditColumn: [undefined],
     },

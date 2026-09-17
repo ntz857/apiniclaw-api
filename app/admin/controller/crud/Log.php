@@ -2,7 +2,9 @@
 
 namespace app\admin\controller\crud;
 
+use Throwable;
 use app\admin\model\CrudLog;
+use app\admin\library\crud\Helper;
 use app\common\controller\Backend;
 
 /**
@@ -34,4 +36,33 @@ class Log extends Backend
         }
     }
 
+    /**
+     * 查看
+     * @throws Throwable
+     */
+    public function index(): void
+    {
+        if ($this->request->param('select')) {
+            $this->select();
+        }
+
+        list($where, $alias, $limit, $order) = $this->queryBuilder();
+        $res = $this->model
+            ->field($this->indexField)
+            ->withJoin($this->withJoinTable, $this->withJoinType)
+            ->alias($alias)
+            ->where($where)
+            ->order($order)
+            ->paginate($limit)->each(function ($item) {
+                $webLangDir      = Helper::parseWebDirNameData($item['table']['name'], 'lang', $item['table']['webViewsDir']);
+                $item['lang_en'] = $webLangDir['en'] . '.ts';
+                $item['lang_cn'] = $webLangDir['zh-cn'] . '.ts';
+            });
+
+        $this->success('', [
+            'list'   => $res->items(),
+            'total'  => $res->total(),
+            'remark' => get_route_remark(),
+        ]);
+    }
 }

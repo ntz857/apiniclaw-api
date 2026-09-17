@@ -26,6 +26,7 @@ export default {
     validator: '验证规则',
     validatorMsg: '验证错误提示',
     copy: '复制设计',
+    ctx: '复制上下文',
     'CRUD record': 'CRUD 记录',
     'Delete Code': '删除代码',
     'Start CRUD design with this record?': '以此记录开始 CRUD 设计？',

@@ -26,6 +26,7 @@ export default {
     validator: 'validator',
     validatorMsg: 'validator error message',
     copy: 'Copy',
+    ctx: 'Copy context',
     'CRUD record': 'CRUD record',
     'Delete Code': 'Delete Code',
     'Start CRUD design with this record?': 'Start CRUD design with this record?',
