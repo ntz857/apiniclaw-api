@@ -5,15 +5,19 @@ namespace app\api\controller;
 use Throwable;
 use ba\Captcha;
 use ba\ClickCaptcha;
+use ba\Random;
 use think\facade\Config;
+use think\facade\Validate;
 use app\common\facade\Token;
 use app\common\controller\Frontend;
 use app\common\library\Auth as UserAuth;
+use app\common\library\Email;
+use app\common\model\User as UserModel;
 use app\api\validate\User as UserValidate;
 
 class User extends Frontend
 {
-    protected array $noNeedLogin = ['checkIn', 'logout'];
+    protected array $noNeedLogin = ['checkIn', 'logout', 'emailCheckIn'];
 
     public function initialize(): void
     {
@@ -86,6 +90,84 @@ class User extends Frontend
         $this->success('', [
             'userLoginCaptchaSwitch'  => $userLoginCaptchaSwitch,
             'accountVerificationType' => get_account_verification_type()
+        ]);
+    }
+
+    /**
+     * 桌面端邮箱验证码登录。tab=send 发码，tab=login 校验并签发会员令牌。
+     * 邮箱不存在时自动注册。未配置发信时，仅在调试模式把验证码放进 data.debug_code。
+     * @throws Throwable
+     */
+    public function emailCheckIn(): void
+    {
+        if (!Config::get('buildadmin.open_member_center')) {
+            $this->error(__('Member center disabled'));
+        }
+        if (!$this->request->isPost()) {
+            $this->error(__('Unknown operation'));
+        }
+
+        $tab   = $this->request->post('tab/s', '');
+        $email = strtolower(trim($this->request->post('email/s', '')));
+        if (!Validate::is($email, 'email')) {
+            $this->error(__('email format error'));
+        }
+
+        $captchaId = $email . 'user_email_login';
+        $captcha   = new Captcha();
+
+        if ($tab === 'send') {
+            $existing = $captcha->getCaptchaData($captchaId);
+            if ($existing && time() - $existing['create_time'] < 60) {
+                $this->error(__('Frequent email sending'));
+            }
+            $code = $captcha->create($captchaId);
+            $mail = new Email();
+            $data = [];
+            if ($mail->configured) {
+                try {
+                    $mail->isSMTP();
+                    $mail->addAddress($email);
+                    $mail->isHTML();
+                    $mail->setSubject(__('user_email_verify') . '-' . get_sys_config('site_name'));
+                    $mail->Body = __('Your verification code is: %s', [$code]);
+                    $mail->send();
+                } catch (Throwable) {
+                    $this->error($mail->ErrorInfo ?: __('Mail sending service unavailable'));
+                }
+            } elseif (env('app_debug')) {
+                $data['debug_code'] = $code;
+            } else {
+                $this->error(__('Mail sending service unavailable'));
+            }
+            $this->success(__('Mail sent successfully~'), $data);
+        }
+
+        if ($tab !== 'login') {
+            $this->error(__('Unknown operation'));
+        }
+
+        $code = trim($this->request->post('captcha/s', ''));
+        if (!$captcha->check($code, $captchaId)) {
+            $this->error(__('Please enter the correct verification code'));
+        }
+
+        $user = UserModel::where('email', $email)->find();
+        if ($user) {
+            if ($user->status == 'disable') {
+                $this->error(__('Account disabled'));
+            }
+            $ok = $this->auth->direct((int)$user->id);
+        } else {
+            $username = 'u' . substr(md5($email . Random::uuid()), 0, 10);
+            $ok       = $this->auth->register($username, Random::build('alnum', 16), '', $email);
+        }
+        if (!$ok) {
+            $this->error($this->auth->getError() ?: __('Check in failed, please try again or contact the website administrator~'));
+        }
+
+        $this->success(__('Login succeeded!'), [
+            'userInfo' => $this->auth->getUserInfo(),
         ]);
     }
 
