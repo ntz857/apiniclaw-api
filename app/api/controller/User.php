@@ -165,6 +165,7 @@ class User extends Frontend
         if (!$ok) {
             $this->error($this->auth->getError() ?: __('Check in failed, please try again or contact the website administrator~'));
         }
+        $this->auth->setRefreshToken(30 * 86400);
 
         $this->success(__('Login succeeded!'), [
             'userInfo' => $this->auth->getUserInfo(),
